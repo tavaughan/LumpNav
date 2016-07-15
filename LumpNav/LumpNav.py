@@ -158,8 +158,8 @@ class LumpNavGuidelet(Guidelet):
     self.pivotCalibrationLogic=slicer.modules.pivotcalibration.logic()
 
     # Set needle and cautery transforms and models
-    self.tumorMarkups_Needle = None
-    self.tumorMarkups_NeedleObserver = None
+    self.tumorMarkups_Reference = None
+    self.tumorMarkups_ReferenceObserver = None
     self.setupScene()
 
     self.navigationView = self.VIEW_TRIPLE_3D
@@ -349,32 +349,32 @@ class LumpNavGuidelet(Guidelet):
 
     logging.debug('Create surface from point set')
 
-    self.tumorModel_Needle = slicer.util.getNode('TumorModel')
-    if not self.tumorModel_Needle:
-      self.tumorModel_Needle = slicer.vtkMRMLModelNode()
-      self.tumorModel_Needle.SetName("TumorModel")
+    self.tumorModel_Reference = slicer.util.getNode('TumorModel')
+    if not self.tumorModel_Reference:
+      self.tumorModel_Reference = slicer.vtkMRMLModelNode()
+      self.tumorModel_Reference.SetName("TumorModel")
       sphereSource = vtk.vtkSphereSource()
       sphereSource.SetRadius(0.001)
-      self.tumorModel_Needle.SetPolyDataConnection(sphereSource.GetOutputPort())
-      slicer.mrmlScene.AddNode(self.tumorModel_Needle)
+      self.tumorModel_Reference.SetPolyDataConnection(sphereSource.GetOutputPort())
+      slicer.mrmlScene.AddNode(self.tumorModel_Reference)
       # Add display node
       modelDisplayNode = slicer.vtkMRMLModelDisplayNode()
-      modelDisplayNode.SetColor(0,1,0) # Green
+      modelDisplayNode.SetColor(0.5,1,0) # Green
       modelDisplayNode.BackfaceCullingOff()
       modelDisplayNode.SliceIntersectionVisibilityOn()
       modelDisplayNode.SetSliceIntersectionThickness(4)
       modelDisplayNode.SetOpacity(0.3) # Between 0-1, 1 being opaque
       slicer.mrmlScene.AddNode(modelDisplayNode)
-      self.tumorModel_Needle.SetAndObserveDisplayNodeID(modelDisplayNode.GetID())
+      self.tumorModel_Reference.SetAndObserveDisplayNodeID(modelDisplayNode.GetID())
 
-    tumorMarkups_Needle = slicer.util.getNode('T')
-    if not tumorMarkups_Needle:
-      tumorMarkups_Needle = slicer.vtkMRMLMarkupsFiducialNode()
-      tumorMarkups_Needle.SetName("T")
-      slicer.mrmlScene.AddNode(tumorMarkups_Needle)
-      tumorMarkups_Needle.CreateDefaultDisplayNodes()
-      tumorMarkups_Needle.GetDisplayNode().SetTextScale(0)
-    self.setAndObserveTumorMarkupsNode(tumorMarkups_Needle)
+    tumorMarkups_Reference = slicer.util.getNode('T')
+    if not tumorMarkups_Reference:
+      tumorMarkups_Reference = slicer.vtkMRMLMarkupsFiducialNode()
+      tumorMarkups_Reference.SetName("T")
+      slicer.mrmlScene.AddNode(tumorMarkups_Reference)
+      tumorMarkups_Reference.CreateDefaultDisplayNodes()
+      tumorMarkups_Reference.GetDisplayNode().SetTextScale(0)
+    self.setAndObserveTumorMarkupsNode(tumorMarkups_Reference)
 
     # Set up breach warning node
     logging.debug('Set up breach warning')
@@ -387,9 +387,9 @@ class LumpNavGuidelet(Guidelet):
       slicer.mrmlScene.AddNode(self.breachWarningNode)
       self.breachWarningNode.SetPlayWarningSound(True)
       self.breachWarningNode.SetWarningColor(1,0,0)
-      self.breachWarningNode.SetOriginalColor(self.tumorModel_Needle.GetDisplayNode().GetColor())
+      self.breachWarningNode.SetOriginalColor(self.tumorModel_Reference.GetDisplayNode().GetColor())
       self.breachWarningNode.SetAndObserveToolTransformNodeId(self.cauteryTipToCautery.GetID())
-      self.breachWarningNode.SetAndObserveWatchedModelNodeID(self.tumorModel_Needle.GetID())
+      self.breachWarningNode.SetAndObserveWatchedModelNodeID(self.tumorModel_Reference.GetID())
       breachWarningLogic = slicer.modules.breachwarning.logic()
       # Line properties can only be set after the line is creaed (made visible at least once)
       breachWarningLogic.SetLineToClosestPointVisibility(True, self.breachWarningNode)
@@ -422,8 +422,8 @@ class LumpNavGuidelet(Guidelet):
     self.needleModelToNeedleTip.SetAndObserveTransformNodeID(self.needleTipToNeedle.GetID())
     self.cauteryModel_CauteryTip.SetAndObserveTransformNodeID(self.cauteryModelToCauteryTip.GetID())
     self.needleModel_NeedleTip.SetAndObserveTransformNodeID(self.needleModelToNeedleTip.GetID())
-    self.tumorModel_Needle.SetAndObserveTransformNodeID(self.needleToReference.GetID())
-    self.tumorMarkups_Needle.SetAndObserveTransformNodeID(self.needleToReference.GetID())
+    self.tumorModel_Reference.SetAndObserveTransformNodeID(self.referenceToRas.GetID())
+    self.tumorMarkups_Reference.SetAndObserveTransformNodeID(self.referenceToRas.GetID())
     # self.liveUltrasoundNode_Reference.SetAndObserveTransformNodeID(self.referenceToRas.GetID())
 
     # Hide slice view annotations (patient name, scale, color bar, etc.) as they
@@ -442,9 +442,9 @@ class LumpNavGuidelet(Guidelet):
     Guidelet.disconnect(self)
 
     # Remove observer to old parameter node
-    if self.tumorMarkups_Needle and self.tumorMarkups_NeedleObserver:
-      self.tumorMarkups_Needle.RemoveObserver(self.tumorMarkups_NeedleObserver)
-      self.tumorMarkups_NeedleObserver = None
+    if self.tumorMarkups_Reference and self.tumorMarkups_ReferenceObserver:
+      self.tumorMarkups_Reference.RemoveObserver(self.tumorMarkups_ReferenceObserver)
+      self.tumorMarkups_ReferenceObserver = None
 
     self.calibrationCollapsibleButton.disconnect('toggled(bool)', self.onCalibrationPanelToggled)
     self.navigationCollapsibleButton.disconnect('toggled(bool)', self.onNavigationPanelToggled)
@@ -532,7 +532,7 @@ class LumpNavGuidelet(Guidelet):
       # activate placement mode
       selectionNode = slicer.app.applicationLogic().GetSelectionNode()
       selectionNode.SetReferenceActivePlaceNodeClassName("vtkMRMLMarkupsFiducialNode")
-      selectionNode.SetActivePlaceNodeID(self.tumorMarkups_Needle.GetID())
+      selectionNode.SetActivePlaceNodeID(self.tumorMarkups_Reference.GetID())
       interactionNode.SetPlaceModePersistence(1)
       interactionNode.SetCurrentInteractionMode(interactionNode.Place)
     else:
@@ -540,27 +540,27 @@ class LumpNavGuidelet(Guidelet):
       interactionNode.SetCurrentInteractionMode(interactionNode.ViewTransform)
 
   def onDeleteLastFiducialClicked(self):
-    numberOfPoints = self.tumorMarkups_Needle.GetNumberOfFiducials()
-    self.tumorMarkups_Needle.RemoveMarkup(numberOfPoints-1)
+    numberOfPoints = self.tumorMarkups_Reference.GetNumberOfFiducials()
+    self.tumorMarkups_Reference.RemoveMarkup(numberOfPoints-1)
     if numberOfPoints<=1:
         self.deleteLastFiducialButton.setEnabled(False)
         self.deleteAllFiducialsButton.setEnabled(False)
         self.deleteLastFiducialDuringNavigationButton.setEnabled(False)
 
   def onDeleteAllFiducialsClicked(self):
-    self.tumorMarkups_Needle.RemoveAllMarkups()
+    self.tumorMarkups_Reference.RemoveAllMarkups()
     self.deleteLastFiducialButton.setEnabled(False)
     self.deleteAllFiducialsButton.setEnabled(False)
     self.deleteLastFiducialDuringNavigationButton.setEnabled(False)
     sphereSource = vtk.vtkSphereSource()
     sphereSource.SetRadius(0.001)
-    self.tumorModel_Needle.SetPolyDataConnection(sphereSource.GetOutputPort())
-    self.tumorModel_Needle.Modified()
+    self.tumorModel_Reference.SetPolyDataConnection(sphereSource.GetOutputPort())
+    self.tumorModel_Reference.Modified()
 
   def onPlaceTumorPointAtCauteryTipClicked(self):
     cauteryTipToNeedle = vtk.vtkMatrix4x4()
     self.cauteryTipToCautery.GetMatrixTransformToNode(self.needleToReference, cauteryTipToNeedle)
-    self.tumorMarkups_Needle.AddFiducial(cauteryTipToNeedle.GetElement(0,3), cauteryTipToNeedle.GetElement(1,3), cauteryTipToNeedle.GetElement(2,3))
+    self.tumorMarkups_Reference.AddFiducial(cauteryTipToNeedle.GetElement(0,3), cauteryTipToNeedle.GetElement(1,3), cauteryTipToNeedle.GetElement(2,3))
 
   def setupCalibrationPanel(self):
     logging.debug('setupCalibrationPanel')
@@ -764,8 +764,8 @@ class LumpNavGuidelet(Guidelet):
 
     logging.debug('onCalibrationPanelToggled: {0}'.format(toggled))
 
-    if self.tumorMarkups_Needle:
-      self.tumorMarkups_Needle.SetDisplayVisibility(0)
+    if self.tumorMarkups_Reference:
+      self.tumorMarkups_Reference.SetDisplayVisibility(0)
 
     self.selectView(self.VIEW_ULTRASOUND_3D)
     self.placeButton.checked = False
@@ -773,8 +773,8 @@ class LumpNavGuidelet(Guidelet):
   def onUltrasoundPanelToggled(self, toggled):
     Guidelet.onUltrasoundPanelToggled(self, toggled)
 
-    if self.tumorMarkups_Needle:
-        self.tumorMarkups_Needle.SetDisplayVisibility(0)
+    if self.tumorMarkups_Reference:
+        self.tumorMarkups_Reference.SetDisplayVisibility(0)
 
     # The user may want to freeze the image (disconnect) to make contouring easier.
     # Disable automatic ultrasound image auto-fit when the user unfreezes (connect)
@@ -783,13 +783,13 @@ class LumpNavGuidelet(Guidelet):
 
   def createTumorFromMarkups(self):
     logging.debug('createTumorFromMarkups')
-    #self.tumorMarkups_Needle.SetDisplayVisibility(0)
+    #self.tumorMarkups_Reference.SetDisplayVisibility(0)
 
     # Create polydata point set from markup points
     points = vtk.vtkPoints()
     cellArray = vtk.vtkCellArray()
 
-    numberOfPoints = self.tumorMarkups_Needle.GetNumberOfFiducials()
+    numberOfPoints = self.tumorMarkups_Reference.GetNumberOfFiducials()
 
     if numberOfPoints>0:
         self.deleteLastFiducialButton.setEnabled(True)
@@ -805,7 +805,7 @@ class LumpNavGuidelet(Guidelet):
     new_coord = [0.0, 0.0, 0.0]
 
     for i in range(numberOfPoints):
-      self.tumorMarkups_Needle.GetNthFiducialPosition(i,new_coord)
+      self.tumorMarkups_Reference.GetNthFiducialPosition(i,new_coord)
       points.SetPoint(i, new_coord)
 
     cellArray.InsertNextCell(numberOfPoints)
@@ -847,9 +847,9 @@ class LumpNavGuidelet(Guidelet):
     normals.SetInputConnection(smoothSurfaceFilter.GetOutputPort())
     normals.SetFeatureAngle(100.0)
     
-    self.tumorModel_Needle.SetPolyDataConnection(normals.GetOutputPort())
+    self.tumorModel_Reference.SetPolyDataConnection(normals.GetOutputPort())
     
-    self.tumorModel_Needle.Modified()
+    self.tumorModel_Reference.Modified()
 
   def getCamera(self, viewName):
     """
@@ -947,7 +947,7 @@ class LumpNavGuidelet(Guidelet):
     self.viewpointLogic.getViewpointForViewNode(viewNode).autoCenterSetSafeXMaximum(widthViewCoordLimits)
     self.viewpointLogic.getViewpointForViewNode(viewNode).autoCenterSetSafeYMinimum(-heightViewCoordLimits)
     self.viewpointLogic.getViewpointForViewNode(viewNode).autoCenterSetSafeYMaximum(heightViewCoordLimits)
-    self.viewpointLogic.getViewpointForViewNode(viewNode).autoCenterSetModelNode(self.tumorModel_Needle)
+    self.viewpointLogic.getViewpointForViewNode(viewNode).autoCenterSetModelNode(self.tumorModel_Reference)
     self.viewpointLogic.getViewpointForViewNode(viewNode).autoCenterStart()
     
   def disableViewpointInViewNode(self,viewNode):
@@ -1058,8 +1058,8 @@ class LumpNavGuidelet(Guidelet):
     logging.debug('onNavigationPanelToggled')
     self.updateNavigationView()
     self.placeButton.checked = False
-    if self.tumorMarkups_Needle:
-      self.tumorMarkups_Needle.SetDisplayVisibility(0)
+    if self.tumorMarkups_Reference:
+      self.tumorMarkups_Reference.SetDisplayVisibility(0)
 
     ## Stop live ultrasound.
     #if self.connectorNode != None:
@@ -1069,19 +1069,19 @@ class LumpNavGuidelet(Guidelet):
     logging.debug("onTumorMarkupsNodeModified")
     self.createTumorFromMarkups()
 
-  def setAndObserveTumorMarkupsNode(self, tumorMarkups_Needle):
+  def setAndObserveTumorMarkupsNode(self, tumorMarkups_Reference):
     logging.debug("setAndObserveTumorMarkupsNode")
-    if tumorMarkups_Needle == self.tumorMarkups_Needle and self.tumorMarkups_NeedleObserver:
+    if tumorMarkups_Reference == self.tumorMarkups_Reference and self.tumorMarkups_ReferenceObserver:
       # no change and node is already observed
       return
     # Remove observer to old parameter node
-    if self.tumorMarkups_Needle and self.tumorMarkups_NeedleObserver:
-      self.tumorMarkups_Needle.RemoveObserver(self.tumorMarkups_NeedleObserver)
-      self.tumorMarkups_NeedleObserver = None
+    if self.tumorMarkups_Reference and self.tumorMarkups_ReferenceObserver:
+      self.tumorMarkups_Reference.RemoveObserver(self.tumorMarkups_ReferenceObserver)
+      self.tumorMarkups_ReferenceObserver = None
     # Set and observe new parameter node
-    self.tumorMarkups_Needle = tumorMarkups_Needle
-    if self.tumorMarkups_Needle:
-      self.tumorMarkups_NeedleObserver = self.tumorMarkups_Needle.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onTumorMarkupsNodeModified)
+    self.tumorMarkups_Reference = tumorMarkups_Reference
+    if self.tumorMarkups_Reference:
+      self.tumorMarkups_ReferenceObserver = self.tumorMarkups_Reference.AddObserver(vtk.vtkCommand.ModifiedEvent, self.onTumorMarkupsNodeModified)
 
   # Called when the user changes the needle length
   def onNeedleLengthModified(self, newLength):
