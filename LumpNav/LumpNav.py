@@ -359,7 +359,7 @@ class LumpNavGuidelet(Guidelet):
       slicer.mrmlScene.AddNode(self.tumorModel_Reference)
       # Add display node
       modelDisplayNode = slicer.vtkMRMLModelDisplayNode()
-      modelDisplayNode.SetColor(0.5,1,0) # Green
+      modelDisplayNode.SetColor(1,0.75,0) # Orange-yellow
       modelDisplayNode.BackfaceCullingOff()
       modelDisplayNode.SliceIntersectionVisibilityOn()
       modelDisplayNode.SetSliceIntersectionThickness(4)
